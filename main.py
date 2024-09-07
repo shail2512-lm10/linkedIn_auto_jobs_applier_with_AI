@@ -8,7 +8,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import WebDriverException, TimeoutException
-from lib_resume_builder_AIHawk import Resume,StyleManager,FacadeManager,ResumeGenerator
+from lib_resume_builder_AIHawk import Resume, StyleManager, FacadeManager, ResumeGenerator
 from src.utils import chromeBrowserOptions
 from src.gpt import GPTAnswerer
 from src.linkedIn_authenticator import LinkedInAuthenticator
@@ -126,7 +126,7 @@ class FileManager:
         if not app_data_folder.exists() or not app_data_folder.is_dir():
             raise FileNotFoundError(f"Data folder not found: {app_data_folder}")
 
-        required_files = ['secrets.yaml', 'config.yaml', 'plain_text_resume.yaml']
+        required_files = ['config.yaml', 'plain_text_resume.yaml']
         missing_files = [file for file in required_files if not (app_data_folder / file).exists()]
         
         if missing_files:
@@ -134,7 +134,7 @@ class FileManager:
 
         output_folder = app_data_folder / 'output'
         output_folder.mkdir(exist_ok=True)
-        return (app_data_folder / 'secrets.yaml', app_data_folder / 'config.yaml', app_data_folder / 'plain_text_resume.yaml', output_folder)
+        return (app_data_folder / 'config.yaml', app_data_folder / 'plain_text_resume.yaml', output_folder)
 
     @staticmethod
     def file_paths_to_dict(resume_file: Path | None, plain_text_resume_file: Path) -> dict:
@@ -158,14 +158,14 @@ def init_browser() -> webdriver.Chrome:
     except Exception as e:
         raise RuntimeError(f"Failed to initialize browser: {str(e)}")
 
-def create_and_run_bot(email: str, password: str, parameters: dict, openai_api_key: str):
+def create_and_run_bot(email: str, password: str, parameters: dict, api_key: str):
     try:
         style_manager = StyleManager()
         resume_generator = ResumeGenerator()
         with open(parameters['uploads']['plainTextResume'], "r") as file:
             plain_text_resume = file.read()
         resume_object = Resume(plain_text_resume)
-        resume_generator_manager = FacadeManager(openai_api_key, style_manager, resume_generator, resume_object, Path("data_folder/output"))
+        resume_generator_manager = FacadeManager(api_key, style_manager, resume_generator, resume_object, Path("data_folder/output"))
         os.system('cls' if os.name == 'nt' else 'clear')
         resume_generator_manager.choose_style()
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -175,7 +175,7 @@ def create_and_run_bot(email: str, password: str, parameters: dict, openai_api_k
         browser = init_browser()
         login_component = LinkedInAuthenticator(browser)
         apply_component = LinkedInJobManager(browser)
-        gpt_answerer_component = GPTAnswerer(openai_api_key)
+        gpt_answerer_component = GPTAnswerer(api_key)
         bot = LinkedInBotFacade(login_component, apply_component)
         bot.set_secrets(email, password)
         bot.set_job_application_profile_and_resume(job_application_profile_object, resume_object)
@@ -194,15 +194,15 @@ def create_and_run_bot(email: str, password: str, parameters: dict, openai_api_k
 def main(resume: Path = None):
     try:
         data_folder = Path("data_folder")
-        secrets_file, config_file, plain_text_resume_file, output_folder = FileManager.validate_data_folder(data_folder)
+        config_file, plain_text_resume_file, output_folder = FileManager.validate_data_folder(data_folder)
         
         parameters = ConfigValidator.validate_config(config_file)
-        email, password, openai_api_key = ConfigValidator.validate_secrets(secrets_file)
+        email, password, api_key = EMAIL, PASSWORD, API_KEY
         
         parameters['uploads'] = FileManager.file_paths_to_dict(resume, plain_text_resume_file)
         parameters['outputFileDirectory'] = output_folder
         
-        create_and_run_bot(email, password, parameters, openai_api_key)
+        create_and_run_bot(email, password, parameters, api_key)
     except ConfigError as ce:
         print(f"Configuration error: {str(ce)}")
         print("Refer to the configuration guide for troubleshooting: https://github.com/feder-cr/LinkedIn_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
@@ -219,5 +219,9 @@ def main(resume: Path = None):
         print(f"An unexpected error occurred: {str(e)}")
         print("Refer to the general troubleshooting guide: https://github.com/feder-cr/LinkedIn_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
 
+
 if __name__ == "__main__":
+    EMAIL = os.getenv("email")
+    PASSWORD = os.getenv("password")
+    API_KEY = os.getenv("api_key")
     main()

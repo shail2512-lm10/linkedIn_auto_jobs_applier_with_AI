@@ -11,6 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompt_values import StringPromptValue
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from Levenshtein import distance
 
 import src.strings as strings
@@ -20,7 +21,7 @@ load_dotenv()
 
 class LLMLogger:
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: ChatOpenAI | ChatHuggingFace):
         self.llm = llm
 
     @staticmethod
@@ -78,7 +79,7 @@ class LLMLogger:
 
 class LoggerChatModel:
 
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: ChatOpenAI | ChatHuggingFace):
         self.llm = llm
 
     def __call__(self, messages: List[Dict[str, str]]) -> str:
@@ -113,10 +114,20 @@ class LoggerChatModel:
 
 
 class GPTAnswerer:
-    def __init__(self, openai_api_key):
-        self.llm_cheap = LoggerChatModel(
-            ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4)
-        )
+    def __init__(self, api_key, openai: bool = False, huggingface: bool = True):
+        if openai:
+            self.llm_cheap = LoggerChatModel(
+                ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=api_key, temperature=0.4)
+            )
+        elif huggingface:
+            hf_llm = HuggingFaceEndpoint(
+                repo_id="neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8",
+                task="text-generation",
+                max_new_tokens=4096,
+                temperature=0.4,
+                huggingfacehub_api_key=api_key,
+            )
+            self.llm_cheap = LoggerChatModel(ChatHuggingFace(llm=hf_llm))
     @property
     def job_description(self):
         return self.job.description
